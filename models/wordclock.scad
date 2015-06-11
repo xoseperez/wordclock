@@ -65,14 +65,16 @@ module subgrid(size, step, wall) {
     }
 }
 
+module mask()  {
+        difference() {
+            base(grid_size, grid_step, chamfer_size, hole_size);
+            grid(grid_size, grid_step, grid_wall);
+        }
+}
+
 module 3dprint() {
     difference() {
-        linear_extrude(grid_height) {
-            difference() {
-                base(grid_size, grid_step, chamfer_size, hole_size);
-                grid(grid_size, grid_step, grid_wall);
-            }
-        }
+        linear_extrude(grid_height) mask();
         subgrid(grid_size, grid_step, grid_wall);
     }
 }
@@ -90,11 +92,11 @@ module arc(max, min) {
     }
 }
 
-module face1() {
+module layer1() {
     base(grid_size, grid_step, chamfer_size, hole_size);
 }
 
-module face2() {
+module layer2() {
     difference() {
         base(grid_size, grid_step, chamfer_size, hole_size);
         translate([5,5,0]) arc(10,5);
@@ -104,7 +106,97 @@ module face2() {
     }
 }
 
-//face1();
-//translate([181,0]) 
-    face2();
+module wall_hole() {
+    minkowski() {
+        square([0.1,15], center=true);
+        circle(3);
+    }
+}
+module layer3() {
+    difference() {
+        base(grid_size, grid_step, chamfer_size, hole_size);
+        translate([50,30,0]) wall_hole();
+        translate([(grid_size+2)*grid_step-50,30,0]) wall_hole();
+    }
+}
+
+module dowrite(char, x=2.7, y=2.5) {
+    //font = "Ubuntu:style=Bold";
+    font = "AG Stencil:style=AG Stencil";
+    translate([x,y])
+        text(char,6,font,"left","center");
+}
+module write(char) {
+    char = (char == "&") ? "d'" : char;
+    if (char == "m") {
+        dowrite(char, 1.5);
+    } else if (char == "w") {
+        dowrite(char, 1.5);
+    } else if (char == "d'") {
+        dowrite(char, 1.5);
+    } else if (char == "i") {
+        dowrite(char, 4);
+    } else if (char == "l") {
+        dowrite(char, 4);
+    } else if (char == "g") {
+        dowrite(char, y=3);
+    } else if (char == "q") {
+        dowrite(char, y=3);
+    } else if (char == "y") {
+        dowrite(char, y=3);
+    } else if (char == "t") {
+        dowrite(char, 3.5);
+    } else if (char == "s") {
+        dowrite(char, 3.5);
+    } else {
+        dowrite(char, 2.7);
+    }
+}
+
+module chars() {
+    list = [
+        "ésónesonvoracasi",
+        "undostresmigwifi",
+        "quarts1imenysmig",
+        "cinc2ben34tocats",
+        "lesdelasduesiset",
+        "cincochovuit&una",
+        "&onzedotzenoudeu",
+        "dosnuevediezonce",
+        "quatreseiscuatro",
+        "sietedoce5ymenos",
+        "veinticincomedia",
+        "cuatrodiezveinte",
+        "ben67tocadespunt",
+        "tocadapasadasdel",
+        "lamatínitarda890",
+        "mañanatardenoche"
+    ];
+    for (y = [0 : 15]) {
+        for (x = [ 0 : 15 ]) {
+            translate([(x+1)*10,160-y*10]) write(list[y][x]);
+        }
+    }
+}
+
+module vinil() {
+    difference() {
+        layer1();
+        chars();
+    }
+}
+
+//Capa 1 (18x18, Acrílic 3mm, transparent, trasnslúcid i fosc)
+//layer1(); 
+
+//Capa 2 (18x18, Acrílic tranparent/fosc? 3mm)
+//layer2();
+
+//Capa 3 (18x18, Acrílic transparent/fosc? 3mm)
+//layer3();
+
+//Graella (18x18, PLA negre)
 //3dprint();
+
+// Lletres (18x18, vinil negre)
+vinil();
