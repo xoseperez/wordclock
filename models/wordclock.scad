@@ -117,7 +117,34 @@ module layer3() {
         base(grid_size, grid_step, chamfer_size, hole_size);
         translate([50,30,0]) wall_hole();
         translate([(grid_size+2)*grid_step-50,30,0]) wall_hole();
+        translate([(180-51)/2-4,110+(180-80)/2+4,0])
+            rotate(-90)
+                pcbfootprint();
     }
+}
+
+module pcbfootprint(hole=4) {
+
+    // HOLES
+    hole = hole / 2;
+    translate([4,4,0]) {
+        circle(hole, center=true);
+    }
+    translate([84,4,0]) {
+        circle(hole, center=true);
+    }
+    translate([4,55,0]) {
+        circle(hole, center=true);
+    }
+    translate([84,55,0]) {
+        circle(hole, center=true);
+    }
+    
+    // BUTTONS
+    translate([23,44,0]) {
+        square([54,13]);
+    }
+
 }
 
 module dowrite(char, x=2.7, y=2.5) {
@@ -132,9 +159,9 @@ module write(char) {
         dowrite(char, 1.5);
     } else if (char == "w") {
         dowrite(char, 1.5);
-    } else if (char == "d'") {
-        dowrite(char, 1.5);
     } else if (char == "i") {
+        dowrite(char, 4);
+    } else if (char == "í") {
         dowrite(char, 4);
     } else if (char == "l") {
         dowrite(char, 4);
@@ -156,20 +183,20 @@ module write(char) {
 module chars() {
     list = [
         "ésónesonvoracasi",
-        "undostresmigwifi",
+        "undostreslangmig",
         "quarts1imenysmig",
         "cinc2ben34tocats",
         "lesdelasduesiset",
         "cincochovuit&una",
-        "&onzedotzenoudeu",
         "dosnuevediezonce",
         "quatreseiscuatro",
         "sietedoce5ymenos",
+        "&onzedotzenoudeu",
         "veinticincomedia",
-        "cuatrodiezveinte",
-        "ben67tocadespunt",
-        "tocadapasadasdel",
-        "lamatínitarda890",
+        "cuartodiezveinte",
+        "ben6tocadespunto",
+        "tocadapasadas789",
+        "dellamatinitarda",
         "mañanatardenoche"
     ];
     for (y = [0 : 15]) {
@@ -177,13 +204,20 @@ module chars() {
             translate([(x+1)*10,160-y*10]) write(list[y][x]);
         }
     }
+    
+    // Fix "matí"
+    translate([94.8,28])
+        offset(0.5)
+            polygon([[0,0],[1,0.60],[1,0.61]]);
+        
 }
 
 module vinil() {
-    difference() {
-        layer1();
-        chars();
-    }
+    offset(0.10)
+        difference() {
+            layer1();
+            chars();
+        }
 }
 
 //Capa 1 (18x18, Acrílic 3mm, transparent, trasnslúcid i fosc)
@@ -195,8 +229,13 @@ module vinil() {
 //Capa 3 (18x18, Acrílic transparent/fosc? 3mm)
 //layer3();
 
+//Capes (transparent, 3mm)
+//layer1();
+//translate([184,0,0]) layer2();
+//translate([2*184,0,0]) layer3();
+
 //Graella (18x18, PLA negre)
 //3dprint();
 
 // Lletres (18x18, vinil negre)
-vinil();
+//vinil();
