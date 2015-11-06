@@ -217,15 +217,17 @@ void buttonCallback(uint8_t pin, uint8_t event) {
         
     }
 
+    update(true);
+    
   }
 
   if (event == EVENT_RELEASED) {
     if (pin == PIN_BUTTON_MODE) {
       mode = MODE_NORMAL;
+      update(true);
     }
   }
 
-  update(true);
 
 }
 

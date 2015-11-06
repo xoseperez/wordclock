@@ -124,7 +124,9 @@ void loadLanguageCastellano(byte hour, byte minute, unsigned long * matrix) {
   // BLOCKS
   byte reference = ((minute + 2) / 5) % 12;
   byte index = (minute + 2) % 5;
-  if (reference < 7) {
+  if (reference == 0) {
+    // NOP
+  } else if (reference < 7) {
     loadCode((clockword) ESP_Y, matrix);  
   } else {
     loadCode((clockword) ESP_MENOS, matrix);  
@@ -164,7 +166,7 @@ void loadLanguageCastellano(byte hour, byte minute, unsigned long * matrix) {
     case  9: loadCode((clockword) ESP_NUEVE, matrix); break;
     case 10: loadCode((clockword) ESP_DIEZ, matrix); break;
     case 11: loadCode((clockword) ESP_ONCE, matrix); break;
-    case 12: loadCode((clockword) ESP_DOCE, matrix); break;
+    default: loadCode((clockword) ESP_DOCE, matrix); break;
   }
 
   // FRANJA HORARIA

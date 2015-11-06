@@ -158,7 +158,7 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
         loadCode((clockword) CAT_I_MIG, matrix);  
       }
     }
-    if (quarts < 1) {
+    if (quarts < 2) {
         loadCode((clockword) CAT_QUART, matrix);  
     } else if (quarts < 4) {
         loadCode((clockword) CAT_QUARTS, matrix);  
@@ -241,7 +241,7 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
     case  9: loadCode((clockword) CAT_NOU, matrix); break;
     case 10: loadCode((clockword) CAT_DEU, matrix); break;
     case 11: loadCode((clockword) CAT_ONZE, matrix); break;
-    case 12: loadCode((clockword) CAT_DOTZE, matrix); break;
+    default: loadCode((clockword) CAT_DOTZE, matrix); break;
   }
 
 
