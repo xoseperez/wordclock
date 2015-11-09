@@ -100,15 +100,18 @@ void reset() {
   RTC.set(DEFAULT_DATETIME);
 }
 
+void printDigits(int digits, bool semicolon = false){
+  if (semicolon) Serial.print(":");
+  if(digits < 10) Serial.print('0');
+  Serial.print(digits);
+}
+
 void digitalClockDisplay(){
-  int current_hour = hour();
-  int current_minute = minute();
   Serial.print("Time: ");
-  Serial.print(current_hour);
-  Serial.print(":");
-  if(current_minute < 10) Serial.print('0');
-  Serial.print(current_minute);
-  Serial.println(); 
+  printDigits(hour(), false);
+  printDigits(minute(), true);
+  printDigits(second(), true);
+  Serial.println();
 }
 
 void loadCode(clockword code, unsigned long * matrix) {
@@ -141,7 +144,7 @@ void update(bool force = false) {
 
   // The matrix array holds the pixels values
   unsigned long matrix[16] = {0};
-  
+
   // Load strings
   if (language == LANGUAGE_CATALAN) {
     loadLanguageCatalan(current_hour, current_minute, matrix);
@@ -163,10 +166,17 @@ void update(bool force = false) {
 
 }
 
-// Shifts time forward 
+// Shifts time forward
 // the specified number of hours and minutes
 void shiftTime(int hours, int minutes) {
   long shift = (hours * 60 + minutes) * 60;
+  RTC.set(RTC.get() + shift);
+  adjustTime(shift);
+}
+
+// Sets seconds to 0 for current hour:minute
+void resetSeconds() {
+  long shift = -second();
   RTC.set(RTC.get() + shift);
   adjustTime(shift);
 }
@@ -178,9 +188,9 @@ void shiftTime(int hours, int minutes) {
 // LANGUAGE button: changes LANGUAGE
 
 void buttonCallback(uint8_t pin, uint8_t event) {
-  
+
   if (event == EVENT_PRESSED) {
-    
+
     switch (pin) {
 
       case PIN_BUTTON_MODE:
@@ -214,16 +224,17 @@ void buttonCallback(uint8_t pin, uint8_t event) {
           language = (language + 1) % TOTAL_LANGUAGES;
         }
         break;
-        
+
     }
 
     update(true);
-    
+
   }
 
   if (event == EVENT_RELEASED) {
     if (pin == PIN_BUTTON_MODE) {
       mode = MODE_NORMAL;
+      resetSeconds();
       update(true);
     }
   }
@@ -239,7 +250,7 @@ void setup() {
   randomSeed(analogRead(0));
 
   // Config RTC provider
-  setSyncProvider(RTC.get); 
+  setSyncProvider(RTC.get);
   if (timeStatus() != timeSet) reset();
 
   // Start display and initialize all to OFF
