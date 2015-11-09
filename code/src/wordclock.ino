@@ -19,7 +19,6 @@
 */
 
 #include <Time.h>
-#include <TimeAlarms.h>
 #include <DS1307RTC.h>
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
