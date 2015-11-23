@@ -29,19 +29,19 @@
 #define ESP_OCHO        {5, 0x0F00}
 #define ESP_UNA         {5, 0x0007}
 
-#define ESP_DOS         {7, 0xE000}
-#define ESP_NUEVE       {7, 0x1F00}
-#define ESP_DIEZ        {7, 0x00F0}
-#define ESP_ONCE        {7, 0x000F}
+#define ESP_DOS         {6, 0xE000}
+#define ESP_NUEVE       {6, 0x1F00}
+#define ESP_DIEZ        {6, 0x00F0}
+#define ESP_ONCE        {6, 0x000F}
 
-#define ESP_TRES        {8, 0x1E00}
-#define ESP_SEIS        {8, 0x03C0}
-#define ESP_CUATRO      {8, 0x003F}
+#define ESP_TRES        {7, 0x1E00}
+#define ESP_SEIS        {7, 0x03C0}
+#define ESP_CUATRO      {7, 0x003F}
 
-#define ESP_SIETE       {9, 0xF800}
-#define ESP_DOCE        {9, 0x0780}
-#define ESP_Y           {9, 0x0020}
-#define ESP_MENOS       {9, 0x001F}
+#define ESP_SIETE       {8, 0xF800}
+#define ESP_DOCE        {8, 0x0780}
+#define ESP_Y           {8, 0x0020}
+#define ESP_MENOS       {8, 0x001F}
 
 #define ESP_VEINTICINCO {10, 0xFFE0}
 #define ESP_CINCO_B     {10, 0x03E0}
@@ -51,11 +51,13 @@
 #define ESP_DIEZ_B      {11, 0x03C0}
 #define ESP_VEINTE      {11, 0x003F}
 
+#define ESP_EN_PUNTO    {12, 0x601F}
+
 #define ESP_PASADA      {13, 0x03F0}
 #define ESP_PASADAS     {13, 0x03F8}
-#define ESP_DE_F        {13, 0x0006}
 
-#define ESP_LA_F        {14, 0xC000}
+#define ESP_DE_F        {14, 0xC000}
+#define ESP_LA_F        {14, 0x1800}
 
 #define ESP_MANANA      {15, 0xFC00}
 #define ESP_TARDE       {15, 0x03E0}

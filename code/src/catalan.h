@@ -50,29 +50,29 @@
 #define CAT_UNA         {5, 0x0007}
 #define CAT_D_UNA       {5, 0x000F}
 
-#define CAT_ONZE        {6, 0x7800}
-#define CAT_D_ONZE      {6, 0xF800}
-#define CAT_DOTZE       {6, 0x07C0}
-#define CAT_NOU         {6, 0x0038}
-#define CAT_DEU         {6, 0x0007}
+#define CAT_DOS         {6, 0xE000}
 
-#define CAT_DOS         {7, 0xE000}
+#define CAT_QUATRE      {7, 0xFC00}
+#define CAT_TRES        {7, 0x1E00}
 
-#define CAT_QUATRE      {8, 0xFC00}
-#define CAT_TRES        {8, 0x1E00}
+#define CAT_ONZE        {9, 0x7800}
+#define CAT_D_ONZE      {9, 0xF800}
+#define CAT_DOTZE       {9, 0x07C0}
+#define CAT_NOU         {9, 0x0038}
+#define CAT_DEU         {9, 0x0007}
 
 #define CAT_BEN         {12, 0xE000}
 #define CAT_TOCADES     {12, 0x07F0}
 #define CAT_EN_PUNT     {12, 0x600F}
 
 #define CAT_TOCADA      {13, 0xFC00}
-#define CAT_DE_F        {13, 0x0006}
-#define CAT_DEL         {13, 0x0007}
 
-#define CAT_LA_F        {14, 0xC000}
-#define CAT_MATI        {14, 0x3C00}
-#define CAT_NIT         {14, 0x0380}
-#define CAT_TARDA       {14, 0x00F8}
+#define CAT_DE_F        {14, 0xC000}
+#define CAT_DEL         {13, 0xE000}
+#define CAT_LA_F        {14, 0x1800}
+#define CAT_MATI        {14, 0x0780}
+#define CAT_NIT         {14, 0x0070}
+#define CAT_TARDA       {14, 0x001F}
 
 void loadCode(clockword code, unsigned long * matrix);
 void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix);
