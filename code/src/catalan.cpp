@@ -31,9 +31,9 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
   02 => tocada/es
   03 => ben tocada/es
   04 => ben tocada/es
-  
+
   05 => vora mig quart
-  
+
   06 => vora mig quart
   07 => mig quart
   08 => mig quart tocat
@@ -49,7 +49,7 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
   18 => un quart ben tocat
   19 => vora un quart i 5
   20 => un quart i 5
-  
+
   21 => vora un quart i mig
   22 => un quart i mig
   23 => un quart i mig tocat
@@ -107,7 +107,7 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
 
   // indica si l'hora és plural o singular
   bool hour_is_singular = ((5 <= minute) && (minute <= 23)) || ((minute < 5) && (hour_12 == 1));
- 
+
   // VERB
   if (hour_is_singular) {
     loadCode((clockword) CAT_ES, matrix);
@@ -123,24 +123,24 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
   // PRIMERS MINUTS
   if ((1 <= minute) && (minute <= 4)) {
     if (hour_is_singular) {
-      loadCode((clockword) CAT_TOCADA, matrix); 
+      loadCode((clockword) CAT_TOCADA, matrix);
     } else {
-      loadCode((clockword) CAT_TOCADES, matrix); 
+      loadCode((clockword) CAT_TOCADES, matrix);
     }
     if (minute > 2) {
-      loadCode((clockword) CAT_BEN, matrix);  
+      loadCode((clockword) CAT_BEN, matrix);
     }
   }
   if (minute == 5) {
-    loadCode((clockword) CAT_VORA, matrix);  
-    loadCode((clockword) CAT_MIG, matrix);  
-    loadCode((clockword) CAT_QUART, matrix);  
+    loadCode((clockword) CAT_VORA, matrix);
+    loadCode((clockword) CAT_MIG, matrix);
+    loadCode((clockword) CAT_QUART, matrix);
   }
 
   // FRANJA DEL MIG
   //if ((6 <= minute) && (minute <= 53)) {
   if (6 <= minute) {
-    
+
     // convenient words
     clockword tocat = (hour_is_singular) ? (clockword) CAT_TOCAT : (clockword) CAT_TOCATS;
 
@@ -148,80 +148,80 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
     byte index = (minute - 6) % 15;
     if (index >= 3) quarts++;
 
-    if (quarts == 1) loadCode((clockword) CAT_UN_Q, matrix);  
-    if (quarts == 2) loadCode((clockword) CAT_DOS_Q, matrix);  
-    if (quarts == 3) loadCode((clockword) CAT_TRES_Q, matrix);  
+    if (quarts == 1) loadCode((clockword) CAT_UN_Q, matrix);
+    if (quarts == 2) loadCode((clockword) CAT_DOS_Q, matrix);
+    if (quarts == 3) loadCode((clockword) CAT_TRES_Q, matrix);
     if (index < 3) {
       if (quarts == 0) {
-        loadCode((clockword) CAT_MIG, matrix);  
+        loadCode((clockword) CAT_MIG, matrix);
       } else {
-        loadCode((clockword) CAT_I_MIG, matrix);  
+        loadCode((clockword) CAT_I_MIG, matrix);
       }
     }
     if (quarts < 2) {
-        loadCode((clockword) CAT_QUART, matrix);  
+        loadCode((clockword) CAT_QUART, matrix);
     } else if (quarts < 4) {
-        loadCode((clockword) CAT_QUARTS, matrix);  
+        loadCode((clockword) CAT_QUARTS, matrix);
     }
 
     switch (index) {
 
       case 0:
-        loadCode((clockword) CAT_VORA, matrix);  
+        loadCode((clockword) CAT_VORA, matrix);
         break;
 
       case 2:
-        loadCode(tocat, matrix);  
+        loadCode(tocat, matrix);
         break;
 
       case 3:
-        loadCode((clockword) CAT_VORA, matrix);  
-        loadCode((clockword) CAT_MENYS, matrix);  
-        loadCode((clockword) CAT_CINC_Q, matrix);  
+        loadCode((clockword) CAT_VORA, matrix);
+        loadCode((clockword) CAT_MENYS, matrix);
+        loadCode((clockword) CAT_CINC_Q, matrix);
         break;
 
       case 4:
-        loadCode((clockword) CAT_MENYS, matrix);  
-        loadCode((clockword) CAT_CINC_Q, matrix);  
+        loadCode((clockword) CAT_MENYS, matrix);
+        loadCode((clockword) CAT_CINC_Q, matrix);
         break;
 
       case 5:
       case 6:
-        loadCode((clockword) CAT_MENYS, matrix);  
-        loadCode((clockword) CAT_CINC_Q, matrix);  
-        loadCode(tocat, matrix);  
+        loadCode((clockword) CAT_MENYS, matrix);
+        loadCode((clockword) CAT_CINC_Q, matrix);
+        loadCode(tocat, matrix);
         break;
 
       case 7:
-        loadCode((clockword) CAT_MENYS, matrix);  
-        loadCode((clockword) CAT_CINC_Q, matrix);  
-        loadCode((clockword) CAT_BEN_Q, matrix);  
-        loadCode(tocat, matrix);  
+        loadCode((clockword) CAT_MENYS, matrix);
+        loadCode((clockword) CAT_CINC_Q, matrix);
+        loadCode((clockword) CAT_BEN_Q, matrix);
+        loadCode(tocat, matrix);
         break;
 
       case 8:
-        loadCode((clockword) CAT_VORA, matrix);  
+        loadCode((clockword) CAT_VORA, matrix);
         break;
 
       case 10:
       case 11:
-        loadCode(tocat, matrix);  
+        loadCode(tocat, matrix);
         break;
 
       case 12:
-        loadCode((clockword) CAT_BEN_Q, matrix);  
-        loadCode(tocat, matrix);  
+        loadCode((clockword) CAT_BEN_Q, matrix);
+        loadCode(tocat, matrix);
         break;
 
       case 13:
-        loadCode((clockword) CAT_VORA, matrix);  
-        loadCode((clockword) CAT_I, matrix);  
-        loadCode((clockword) CAT_CINC_Q, matrix);  
+        loadCode((clockword) CAT_VORA, matrix);
+        loadCode((clockword) CAT_I, matrix);
+        loadCode((clockword) CAT_CINC_Q, matrix);
         break;
 
       case 14:
-        loadCode((clockword) CAT_I, matrix);  
-        loadCode((clockword) CAT_CINC_Q, matrix);  
+        loadCode((clockword) CAT_I, matrix);
+        loadCode((clockword) CAT_CINC_Q, matrix);
         break;
 
     }
@@ -248,20 +248,20 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
   // ULTIMS MINUTS
   /*
   if (minute == 54) {
-    loadCode((clockword) CAT_TRES_Q, matrix);  
-    loadCode((clockword) CAT_QUARTS, matrix);  
-    loadCode((clockword) CAT_I_MIG, matrix);  
-    loadCode((clockword) CAT_TOCATS, matrix);  
+    loadCode((clockword) CAT_TRES_Q, matrix);
+    loadCode((clockword) CAT_QUARTS, matrix);
+    loadCode((clockword) CAT_I_MIG, matrix);
+    loadCode((clockword) CAT_TOCATS, matrix);
   }
   if (minute == 55) {
-    loadCode((clockword) CAT_TRES_Q, matrix);  
-    loadCode((clockword) CAT_QUARTS, matrix);  
-    loadCode((clockword) CAT_I_MIG, matrix);  
-    loadCode((clockword) CAT_BEN_Q, matrix);  
-    loadCode((clockword) CAT_TOCATS, matrix);  
+    loadCode((clockword) CAT_TRES_Q, matrix);
+    loadCode((clockword) CAT_QUARTS, matrix);
+    loadCode((clockword) CAT_I_MIG, matrix);
+    loadCode((clockword) CAT_BEN_Q, matrix);
+    loadCode((clockword) CAT_TOCATS, matrix);
   }
   if (minute >= 56) {
-    loadCode((clockword) CAT_VORA, matrix);  
+    loadCode((clockword) CAT_VORA, matrix);
   }
   */
 
