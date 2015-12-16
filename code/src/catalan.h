@@ -63,7 +63,7 @@
 
 #define CAT_BEN         {12, 0xE000}
 #define CAT_TOCADES     {12, 0x0FE0}
-#define CAT_EN_PUNT     {12, 0x600F}
+#define CAT_EN_PUNT     {12, 0x601E}
 
 #define CAT_TOCADA      {13, 0xFC00}
 
