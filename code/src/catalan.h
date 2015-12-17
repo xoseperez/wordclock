@@ -68,7 +68,7 @@
 #define CAT_TOCADA      {13, 0xFC00}
 
 #define CAT_DE_F        {14, 0xC000}
-#define CAT_DEL         {13, 0xE000}
+#define CAT_DEL         {14, 0xE000}
 #define CAT_LA_F        {14, 0x1800}
 #define CAT_MATI        {14, 0x0780}
 #define CAT_NIT         {14, 0x0070}
