@@ -33,22 +33,32 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define DEBUG
 #define SERIAL_BAUD 9600
 #define DEBOUNCE_DELAY 100
-#define DEFAULT_DATETIME 1434121829
-#define UPDATE_CLOCK_INTERVAL 60000
-#define TOTAL_PIXELS 256
-#define TOTAL_LANGUAGES 2
-#define TOTAL_COLORS 5
 
+// matrix configuration
+#define MATRIX_WIDTH 16
+#define MATRIX_HEIGHT 16
+#define TOTAL_PIXELS MATRIX_WIDTH * MATRIX_HEIGHT
 #define DEFAULT_BRIGHTNESS 32
+
+// clock configuration
+#define TOTAL_COLORS 5
 #define DEFAULT_COLOR 3
-
-// mode
-#define MODE_NORMAL 0
-#define MODE_CHANGE 1
-
-// languages
+#define TOTAL_LANGUAGES 2
 #define LANGUAGE_CATALAN 0
 #define LANGUAGE_SPANISH 1
+
+// game of life configuration
+#define UPDATE_GAMEOFLIFE 100
+#define GAMEOFLIFE_SEEDS 128
+#define GAMEOFLIFE_AUTORESET 50
+#define GAMEOFLIFE_BRIGHTNESS 16
+
+// modes
+#define TOTAL_MODES 2
+#define MODE_CLOCK 0
+#define MODE_GAMEOFLIFE 1
+#define MODE_CHANGE 8
+#define MODE_CHANGED 9
 
 // pin definitions
 #define PIN_BUTTON_MODE 5
@@ -61,16 +71,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Globals
 // ===========================================
 
-byte mode = MODE_NORMAL;
+byte mode = MODE_CLOCK;
 byte language = LANGUAGE_CATALAN;
 byte brightness = DEFAULT_BRIGHTNESS;
 byte color = DEFAULT_COLOR;
 
 // Pixel strip
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(TOTAL_PIXELS, PIN_LEDSTRIP, NEO_RGB + NEO_KHZ800);
-
-// RTC
-RTC_DS1307 rtc;
+Adafruit_NeoPixel matrix = Adafruit_NeoPixel(TOTAL_PIXELS, PIN_LEDSTRIP, NEO_GRB + NEO_KHZ800);
 
 // Buttons
 void buttonCallback(uint8_t pin, uint8_t event);
@@ -79,22 +86,36 @@ DebounceEvent buttonMinute = DebounceEvent(PIN_BUTTON_COLOR, buttonCallback);
 DebounceEvent buttonMode = DebounceEvent(PIN_BUTTON_MODE, buttonCallback);
 DebounceEvent buttonFunction = DebounceEvent(PIN_BUTTON_LANGUAGE, buttonCallback);
 
-// Colors
+// RTC
+RTC_DS1307 rtc;
+
+// Clock colors
 unsigned long colors[TOTAL_COLORS] = {
-   pixels.Color(255,255,255),
-   pixels.Color(255,10,10),
-   pixels.Color(10,255,10),
-   pixels.Color(10,10,255),
-   pixels.Color(248,222,0)
+   matrix.Color(255,255,255),
+   matrix.Color(255,10,10),
+   matrix.Color(10,255,10),
+   matrix.Color(10,10,255),
+   matrix.Color(248,222,0)
 };
 
-// ===========================================
-// Interrupt routines
-// ===========================================
+// Game Of Life
+uint32_t newCellColor = matrix.Color(10,255,10);
+uint32_t oldCellColor = matrix.Color(255,10,10);
+byte numCells = 0;
+byte prevCells = 0;
+byte autoResetCount = 0;
+unsigned long nextupdate = 0;
 
-// ===========================================
+// =============================================================================
+// Interrupt routines
+// =============================================================================
+
+// =============================================================================
 // Methods
-// ===========================================
+// =============================================================================
+
+
+// === TIME ====================================================================
 
 void resetTime() {
    #ifdef DEBUG
@@ -107,6 +128,7 @@ void resetTime() {
 void shiftTime(int hours, int minutes, int seconds) {
    DateTime newTime = DateTime(rtc.now().unixtime() + seconds+60*(minutes+60*hours));
    rtc.adjust(newTime);
+   mode = MODE_CHANGED;
 }
 
 // Sets seconds to 0 for current hour:minute
@@ -128,16 +150,145 @@ void digitalClockDisplay(DateTime now){
    Serial.println();
 }
 
+// === GAME OF LIFE ============================================================
+
+// Get pixel index in matrix from X,Y coords
+unsigned int pixelIndex(int x, int y) {
+   unsigned int pixel = TOTAL_PIXELS - ( MATRIX_WIDTH * y + ((y % 2 == 1) ? x : MATRIX_HEIGHT - x - 1)) - 1;
+   return pixel;
+}
+
+void initGameOfLife() {
+
+   byte x,y;
+   byte index;
+
+   matrix.clear();
+   numCells = 0;
+   while (numCells < GAMEOFLIFE_SEEDS) {
+      x = random(0, MATRIX_WIDTH);
+      y = random(0, MATRIX_HEIGHT);
+      index = pixelIndex(x, y);
+      if (matrix.getPixelColor(index) == 0) {
+         matrix.setPixelColor(index, newCellColor);
+         numCells++;
+      }
+   }
+   matrix.setBrightness(GAMEOFLIFE_BRIGHTNESS);
+   matrix.show();
+
+   nextupdate = millis() + UPDATE_GAMEOFLIFE;
+
+}
+
+bool isAlive(unsigned int * matrix, int x, int y) {
+
+   if (x < 0) x += MATRIX_WIDTH;
+   if (x >= MATRIX_WIDTH) x -= MATRIX_WIDTH;
+   if (y < 0) y += MATRIX_HEIGHT;
+   if (y >= MATRIX_HEIGHT) y -= MATRIX_HEIGHT;
+
+   unsigned int row = 1 << (MATRIX_WIDTH-x-1);
+   bool alive = ((matrix[y] & row) != 0);
+
+   return alive;
+
+}
+
+byte countNeighbours(unsigned int * matrix, int x, int y) {
+      byte neighbours = 0;
+      if (isAlive(matrix, x-1, y-1)) neighbours++;
+      if (isAlive(matrix, x-1, y)) neighbours++;
+      if (isAlive(matrix, x-1, y+1)) neighbours++;
+      if (isAlive(matrix, x, y-1)) neighbours++;
+      if (isAlive(matrix, x, y+1)) neighbours++;
+      if (isAlive(matrix, x+1, y-1)) neighbours++;
+      if (isAlive(matrix, x+1, y)) neighbours++;
+      if (isAlive(matrix, x+1, y+1)) neighbours++;
+      return neighbours;
+}
+
+void updateGameOfLife() {
+
+   byte x, y;
+   unsigned int index;
+   unsigned int current[MATRIX_HEIGHT];
+
+   // Create an image of current situation
+   for (y=0; y<MATRIX_HEIGHT; y++) {
+      unsigned int row = 0;
+      for (x=0; x<MATRIX_WIDTH; x++) {
+
+         index = pixelIndex(x, y);
+         row <<= 1;
+         if (matrix.getPixelColor(index) != 0) row += 1;
+
+      }
+      current[y] = row;
+
+   }
+
+   matrix.clear();
+   numCells = 0;
+   for (x=0; x<MATRIX_WIDTH; x++) {
+      for (y=0; y<MATRIX_HEIGHT; y++) {
+
+         index = pixelIndex(x, y);
+         byte neighbours = countNeighbours(current, x, y);
+         bool live = isAlive(current, x, y);
+
+         // a living cell
+         if (live) {
+
+            // keeps on living if 2-3 neighbours
+            if (neighbours == 2 || neighbours == 3) {
+               matrix.setPixelColor(index, oldCellColor);
+               numCells++;
+
+            // else dies due to under/over-population
+            } else {
+               // NOP
+            }
+
+         // a dead cell
+         } else {
+
+            // comes to life if 3 living neighbours
+            if (neighbours == 3) {
+               matrix.setPixelColor(index, newCellColor);
+               numCells++;
+
+            // else nothing
+            } else {
+               // NOP
+            }
+
+         }
+      }
+   }
+
+   matrix.setBrightness(GAMEOFLIFE_BRIGHTNESS);
+   matrix.show();
+
+   if (numCells == prevCells) autoResetCount++;
+   if (autoResetCount == GAMEOFLIFE_AUTORESET) {
+      numCells = 0;
+      autoResetCount = 0;
+   }
+   prevCells = numCells;
+
+   nextupdate += UPDATE_GAMEOFLIFE;
+
+}
+
+
+// === CLOCK ===================================================================
+
 void loadCode(clockword code, unsigned long * matrix) {
    matrix[code.row] = matrix[code.row] | code.positions;
 }
 
-void update(bool force = false) {
-
-   // RTC sync not working
-   if (!rtc.isrunning()) {
-      resetTime();
-   }
+void updateClock(bool force = false) {
 
    // Check previous values for hour and minute and
    // update only if they have changed
@@ -152,34 +303,58 @@ void update(bool force = false) {
 
    digitalClockDisplay(now);
 
-   // The matrix array holds the pixels values
-   unsigned long matrix[16] = {0};
+   // The matrix array holds the matrix values
+   unsigned long pattern[16] = {0};
 
    // Load strings
    if (language == LANGUAGE_CATALAN) {
-      loadLanguageCatalan(current_hour, current_minute, matrix);
+      loadLanguageCatalan(current_hour, current_minute, pattern);
    } else {
-      loadLanguageCastellano(current_hour, current_minute, matrix);
+      loadLanguageCastellano(current_hour, current_minute, pattern);
    }
 
-   pixels.clear();
-   pixels.setBrightness(brightness);
+   matrix.clear();
+   matrix.setBrightness(brightness);
    for (unsigned int row=0; row < 16; row++) {
       unsigned long value = 1;
       for (unsigned int col=0; col < 16; col++) {
          unsigned int pixel = 16 * row + ((row % 2 == 0) ? col : 15 - col);
-         pixels.setPixelColor(pixel, (matrix[row] & value) == 0 ? 0 : colors[color]);
+         matrix.setPixelColor(pixel, (pattern[row] & value) == 0 ? 0 : colors[color]);
          value <<= 1;
       }
    }
-   pixels.show();
+   matrix.show();
+
+}
+
+// === GENERAL =================================================================
+
+// Update display depending on current mode
+void update(bool force = false) {
+
+   switch (mode) {
+
+      case MODE_CLOCK:
+      case MODE_CHANGE:
+         updateClock(force);
+         break;
+
+      case MODE_GAMEOFLIFE:
+         if (numCells == 0) {
+            initGameOfLife();
+         } else {
+            if (millis() > nextupdate) updateGameOfLife();
+         }
+         break;
+
+   }
 
 }
 
 // There are 4 buttons
-// MODE button: sets the clock in CHANGE MODE while pressed
-// BRIGHTNESS button: increases brightness (sums 1 to hour when in CHANGE MODE)
-// COLOR button: changes color (sums 1 to minute when in CHANGE MODE)
+// MODE button: changes mode, when hold in MODE_CLOCK enters MODE_CHANGE
+// BRIGHTNESS button: increases brightness (sums 1 to hour when in MODE_CHANGE)
+// COLOR button: changes color (sums 1 to minute when in MODE_CHANGE)
 // LANGUAGE button: changes LANGUAGE
 
 void buttonCallback(uint8_t pin, uint8_t event) {
@@ -189,36 +364,39 @@ void buttonCallback(uint8_t pin, uint8_t event) {
       switch (pin) {
 
          case PIN_BUTTON_MODE:
-         mode = MODE_CHANGE;
-         Serial.println(F("CHANGE MODE"));
-         break;
+            if (mode == MODE_CLOCK) {
+               mode = MODE_CHANGE;
+               Serial.print(F("MODE: "));
+               Serial.println(mode);
+            }
+            break;
 
          case PIN_BUTTON_BRIGHTNESS:
-         if (mode == MODE_CHANGE) {
-            shiftTime(1, 0, 0);
-         } else {
-            if (brightness == 0) {
-               brightness = 16;
-            } else {
-               brightness *= 2;
+            if (mode == MODE_CHANGE) {
+               shiftTime(1, 0, 0);
+            } else if (mode == MODE_CLOCK) {
+               if (brightness == 0) {
+                  brightness = 16;
+               } else {
+                  brightness *= 2;
+               }
+               if (brightness == 256) brightness = 0;
             }
-            if (brightness == 256) brightness = 0;
-         }
-         break;
+            break;
 
          case PIN_BUTTON_COLOR:
-         if (mode == MODE_CHANGE) {
-            shiftTime(0, rtc.now().minute() == 59 ? -59 : 1, 0);
-         } else {
-            color = (color + 1) % TOTAL_COLORS;
-         }
-         break;
+            if (mode == MODE_CHANGE) {
+               shiftTime(0, rtc.now().minute() == 59 ? -59 : 1, 0);
+            } else if (mode == MODE_CLOCK) {
+               color = (color + 1) % TOTAL_COLORS;
+            }
+            break;
 
          case PIN_BUTTON_LANGUAGE:
-         if (mode == MODE_NORMAL) {
-            language = (language + 1) % TOTAL_LANGUAGES;
-         }
-         break;
+            if (mode == MODE_CLOCK) {
+               language = (language + 1) % TOTAL_LANGUAGES;
+            }
+            break;
 
       }
 
@@ -228,8 +406,18 @@ void buttonCallback(uint8_t pin, uint8_t event) {
 
    if (event == EVENT_RELEASED) {
       if (pin == PIN_BUTTON_MODE) {
-         mode = MODE_NORMAL;
-         resetSeconds();
+         if (mode == MODE_CHANGE) {
+            mode = MODE_CLOCK;
+         }
+         if (mode == MODE_CHANGED) {
+            resetSeconds();
+            mode = MODE_CLOCK;
+         } else {
+            mode = (mode + 1) % TOTAL_MODES;
+         }
+         nextupdate = millis();
+         Serial.print(F("MODE: "));
+         Serial.println(mode);
          update(true);
       }
    }
@@ -254,8 +442,8 @@ void setup() {
    randomSeed(rtc.now().unixtime());
 
    // Start display and initialize all to OFF
-   pixels.begin();
-   pixels.show();
+   matrix.begin();
+   matrix.show();
 
 }
 
