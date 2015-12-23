@@ -26,9 +26,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "catalan.h"
 #include "castellano.h"
 
-// ===========================================
+// =============================================================================
 // Configuration
-// ===========================================
+// =============================================================================
 
 #define DEBUG
 #define SERIAL_BAUD 9600
@@ -53,10 +53,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define GAMEOFLIFE_AUTORESET 50
 #define GAMEOFLIFE_BRIGHTNESS 16
 
+// matrix configuration
+#define UPDATE_MATRIX 25
+#define MATRIX_BIRTH_RATIO 75
+#define MATRIX_SPEED_MIN 6
+#define MATRIX_SPEED_MAX 1
+#define MATRIX_LENGTH_MIN 5
+#define MATRIX_LENGTH_MAX 15
+#define MATRIX_LIFE_MIN 10
+#define MATRIX_LIFE_MAX 30
+#define MATRIX_MAX_RAYS 30
+
 // modes
-#define TOTAL_MODES 2
+#define TOTAL_MODES 3
 #define MODE_CLOCK 0
 #define MODE_GAMEOFLIFE 1
+#define MODE_MATRIX 2
 #define MODE_CHANGE 8
 #define MODE_CHANGED 9
 
@@ -67,9 +79,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define PIN_BUTTON_LANGUAGE 8
 #define PIN_LEDSTRIP 4
 
-// ===========================================
+// =============================================================================
 // Globals
-// ===========================================
+// =============================================================================
 
 byte mode = MODE_CLOCK;
 byte language = LANGUAGE_CATALAN;
@@ -105,6 +117,17 @@ byte numCells = 0;
 byte prevCells = 0;
 byte autoResetCount = 0;
 unsigned long nextupdate = 0;
+
+// Matrix
+byte current_num_rays = 0;
+struct {
+  byte x;
+  byte y;
+  byte speed;
+  byte length;
+  byte life;
+} ray[MATRIX_MAX_RAYS];
+
 
 // =============================================================================
 // Interrupt routines
@@ -148,6 +171,81 @@ void digitalClockDisplay(DateTime now){
    printDigits(now.minute(), true);
    printDigits(now.second(), true);
    Serial.println();
+}
+
+// === MATRIX ==================================================================
+
+unsigned long getMatrixColor(byte current, byte total) {
+   byte green = map(current, 0, total, 255, 0);
+   byte red = current == 0 ? 255 : 0;
+   return matrix.Color(red, green, 0);
+}
+
+void seedMatrix() {
+
+   if (current_num_rays < MATRIX_MAX_RAYS) {
+      bool create = random(0, 100) < MATRIX_BIRTH_RATIO;
+      if (create) {
+         byte i = 0;
+         while (ray[i].life > 0) i++;
+         ray[i].x = random(0, MATRIX_WIDTH);
+         ray[i].y = random(0, MATRIX_HEIGHT);
+         ray[i].speed = random(MATRIX_SPEED_MAX, MATRIX_SPEED_MIN);
+         ray[i].length = random(MATRIX_LENGTH_MIN, MATRIX_LENGTH_MAX);
+         ray[i].life = random(MATRIX_LIFE_MIN, MATRIX_LIFE_MAX);
+         current_num_rays++;
+      }
+   }
+
+}
+
+void updateMatrix() {
+
+   static unsigned long count = 0;
+   static unsigned long next_update = millis();
+
+   if (next_update > millis()) return;
+
+   seedMatrix();
+   matrix.clear();
+
+   for (byte i=0; i<MATRIX_MAX_RAYS; i++) {
+      if (ray[i].life > 0) {
+
+         // update ray position depending on speed
+         if (count % ray[i].speed == 0) {
+            ray[i].y = ray[i].y + 1;
+            ray[i].life = ray[i].life - 1;
+         }
+
+         // get colors for each pixel
+         byte start = 0;
+         if (ray[i].life <= ray[i].length) {
+            start = ray[i].length - ray[i].life ;
+         }
+
+         bool active = false;
+         for (byte p=start; p<ray[i].length; p++) {
+            int col = ray[i].y - p;
+            if (0 <= col && col < MATRIX_HEIGHT) {
+               matrix.setPixelColor(pixelIndex(ray[i].x, MATRIX_HEIGHT - col - 1), getMatrixColor(p, ray[i].length));
+               active = true;
+            }
+         }
+
+         // still active?
+         if (!active) ray[i].life = 0;
+         if (ray[i].life == 0) current_num_rays--;
+
+      }
+   }
+
+
+   matrix.setBrightness(DEFAULT_BRIGHTNESS);
+   matrix.show();
+
+   count++;
+   next_update += UPDATE_MATRIX;
 }
 
 // === GAME OF LIFE ============================================================
@@ -347,6 +445,10 @@ void update(bool force = false) {
          }
          break;
 
+      case MODE_MATRIX:
+         updateMatrix();
+         break;
+
    }
 
 }
@@ -440,6 +542,9 @@ void setup() {
 
    // Initialise random number generation
    randomSeed(rtc.now().unixtime());
+
+   // Reset matrix
+   for (byte i=0; i< MATRIX_MAX_RAYS; i++) ray[i].life = 0;
 
    // Start display and initialize all to OFF
    matrix.begin();
