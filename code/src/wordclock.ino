@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <Wire.h>
+#include <EEPROM.h>
 #include <RTClib.h>
 #include <Adafruit_NeoPixel.h>
 #include "debounceEvent.h"
@@ -72,6 +73,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MODE_CHANGE 8
 #define MODE_CHANGED 9
 
+// colors
+#define COLOR_WHITE 16777215
+#define COLOR_RED 16714250
+#define COLOR_GREEN 720650
+#define COLOR_BLUE 658175
+#define COLOR_YELLOW 16309760
+
 // pin definitions
 #define PIN_BUTTON_MODE 5
 #define PIN_BUTTON_BRIGHTNESS 6
@@ -85,8 +93,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 byte mode = MODE_CLOCK;
 byte language = LANGUAGE_CATALAN;
-byte brightness = DEFAULT_BRIGHTNESS;
 byte color = DEFAULT_COLOR;
+byte brightness = DEFAULT_BRIGHTNESS;
 
 // Pixel strip
 Adafruit_NeoPixel matrix = Adafruit_NeoPixel(TOTAL_PIXELS, PIN_LEDSTRIP, NEO_GRB + NEO_KHZ800);
@@ -102,21 +110,7 @@ DebounceEvent buttonFunction = DebounceEvent(PIN_BUTTON_LANGUAGE, buttonCallback
 RTC_DS1307 rtc;
 
 // Clock colors
-unsigned long colors[TOTAL_COLORS] = {
-   matrix.Color(255,255,255),
-   matrix.Color(255,10,10),
-   matrix.Color(10,255,10),
-   matrix.Color(10,10,255),
-   matrix.Color(248,222,0)
-};
-
-// Game Of Life
-uint32_t newCellColor = matrix.Color(10,255,10);
-uint32_t oldCellColor = matrix.Color(255,10,10);
-byte numCells = 0;
-byte prevCells = 0;
-byte autoResetCount = 0;
-unsigned long nextupdate = 0;
+unsigned long colors[TOTAL_COLORS] = { COLOR_WHITE, COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW };
 
 // Matrix
 byte current_num_rays = 0;
@@ -199,12 +193,12 @@ void seedMatrix() {
 
 }
 
-void updateMatrix() {
+void updateMatrix(bool force = false) {
 
    static unsigned long count = 0;
    static unsigned long next_update = millis();
 
-   if (next_update > millis()) return;
+   if (!force && (next_update > millis())) return;
 
    seedMatrix();
    matrix.clear();
@@ -260,22 +254,20 @@ void initGameOfLife() {
 
    byte x,y;
    byte index;
+   byte numCells = 0;
 
    matrix.clear();
-   numCells = 0;
    while (numCells < GAMEOFLIFE_SEEDS) {
       x = random(0, MATRIX_WIDTH);
       y = random(0, MATRIX_HEIGHT);
       index = pixelIndex(x, y);
       if (matrix.getPixelColor(index) == 0) {
-         matrix.setPixelColor(index, newCellColor);
+         matrix.setPixelColor(index, COLOR_GREEN);
          numCells++;
       }
    }
    matrix.setBrightness(GAMEOFLIFE_BRIGHTNESS);
    matrix.show();
-
-   nextupdate = millis() + UPDATE_GAMEOFLIFE;
 
 }
 
@@ -306,67 +298,83 @@ byte countNeighbours(unsigned int * matrix, int x, int y) {
       return neighbours;
 }
 
-void updateGameOfLife() {
+void updateGameOfLife(bool force = false) {
+
+   static byte numCells = 0;
+   static byte prevCells = 0;
+   static byte autoResetCount = 0;
+   static unsigned long next_update = millis();
 
    byte x, y;
    unsigned int index;
    unsigned int current[MATRIX_HEIGHT];
 
-   // Create an image of current situation
-   for (y=0; y<MATRIX_HEIGHT; y++) {
-      unsigned int row = 0;
-      for (x=0; x<MATRIX_WIDTH; x++) {
+   if (!force && (next_update > millis())) return;
 
-         index = pixelIndex(x, y);
-         row <<= 1;
-         if (matrix.getPixelColor(index) != 0) row += 1;
+   if (numCells == 0) {
 
-      }
-      current[y] = row;
+      initGameOfLife();
+      numCells = GAMEOFLIFE_SEEDS;
 
-   }
+   } else {
 
-   matrix.clear();
-   numCells = 0;
-   for (x=0; x<MATRIX_WIDTH; x++) {
+      // Create an image of current situation
       for (y=0; y<MATRIX_HEIGHT; y++) {
+         unsigned int row = 0;
+         for (x=0; x<MATRIX_WIDTH; x++) {
 
-         index = pixelIndex(x, y);
-         byte neighbours = countNeighbours(current, x, y);
-         bool live = isAlive(current, x, y);
-
-         // a living cell
-         if (live) {
-
-            // keeps on living if 2-3 neighbours
-            if (neighbours == 2 || neighbours == 3) {
-               matrix.setPixelColor(index, oldCellColor);
-               numCells++;
-
-            // else dies due to under/over-population
-            } else {
-               // NOP
-            }
-
-         // a dead cell
-         } else {
-
-            // comes to life if 3 living neighbours
-            if (neighbours == 3) {
-               matrix.setPixelColor(index, newCellColor);
-               numCells++;
-
-            // else nothing
-            } else {
-               // NOP
-            }
+            index = pixelIndex(x, y);
+            row <<= 1;
+            if (matrix.getPixelColor(index) != 0) row += 1;
 
          }
-      }
-   }
+         current[y] = row;
 
-   matrix.setBrightness(GAMEOFLIFE_BRIGHTNESS);
-   matrix.show();
+      }
+
+      matrix.clear();
+      numCells = 0;
+      for (x=0; x<MATRIX_WIDTH; x++) {
+         for (y=0; y<MATRIX_HEIGHT; y++) {
+
+            index = pixelIndex(x, y);
+            byte neighbours = countNeighbours(current, x, y);
+            bool live = isAlive(current, x, y);
+
+            // a living cell
+            if (live) {
+
+               // keeps on living if 2-3 neighbours
+               if (neighbours == 2 || neighbours == 3) {
+                  matrix.setPixelColor(index, COLOR_RED);
+                  numCells++;
+
+               // else dies due to under/over-population
+               } else {
+                  // NOP
+               }
+
+            // a dead cell
+            } else {
+
+               // comes to life if 3 living neighbours
+               if (neighbours == 3) {
+                  matrix.setPixelColor(index, COLOR_GREEN);
+                  numCells++;
+
+               // else nothing
+               } else {
+                  // NOP
+               }
+
+            }
+         }
+      }
+
+      matrix.setBrightness(GAMEOFLIFE_BRIGHTNESS);
+      matrix.show();
+
+   }
 
    if (numCells == prevCells) autoResetCount++;
    if (autoResetCount == GAMEOFLIFE_AUTORESET) {
@@ -375,7 +383,7 @@ void updateGameOfLife() {
    }
    prevCells = numCells;
 
-   nextupdate += UPDATE_GAMEOFLIFE;
+   next_update += UPDATE_GAMEOFLIFE;
 
 }
 
@@ -427,6 +435,20 @@ void updateClock(bool force = false) {
 
 // === GENERAL =================================================================
 
+void eeprom_save() {
+   EEPROM.update(0, mode);
+   EEPROM.update(1, language);
+   EEPROM.update(2, color);
+   EEPROM.update(3, brightness);
+}
+
+void eeprom_retrieve() {
+   mode = EEPROM.read(0);
+   language = EEPROM.read(1);
+   color = EEPROM.read(2);
+   brightness = EEPROM.read(3);
+}
+
 // Update display depending on current mode
 void update(bool force = false) {
 
@@ -438,15 +460,11 @@ void update(bool force = false) {
          break;
 
       case MODE_GAMEOFLIFE:
-         if (numCells == 0) {
-            initGameOfLife();
-         } else {
-            if (millis() > nextupdate) updateGameOfLife();
-         }
+         updateGameOfLife(force);
          break;
 
       case MODE_MATRIX:
-         updateMatrix();
+         updateMatrix(force);
          break;
 
    }
@@ -483,6 +501,7 @@ void buttonCallback(uint8_t pin, uint8_t event) {
                   brightness *= 2;
                }
                if (brightness == 256) brightness = 0;
+               eeprom_save();
             }
             break;
 
@@ -491,12 +510,14 @@ void buttonCallback(uint8_t pin, uint8_t event) {
                shiftTime(0, rtc.now().minute() == 59 ? -59 : 1, 0);
             } else if (mode == MODE_CLOCK) {
                color = (color + 1) % TOTAL_COLORS;
+               eeprom_save();
             }
             break;
 
          case PIN_BUTTON_LANGUAGE:
             if (mode == MODE_CLOCK) {
                language = (language + 1) % TOTAL_LANGUAGES;
+               eeprom_save();
             }
             break;
 
@@ -516,8 +537,8 @@ void buttonCallback(uint8_t pin, uint8_t event) {
             mode = MODE_CLOCK;
          } else {
             mode = (mode + 1) % TOTAL_MODES;
+            eeprom_save();
          }
-         nextupdate = millis();
          Serial.print(F("MODE: "));
          Serial.println(mode);
          update(true);
@@ -549,6 +570,9 @@ void setup() {
    // Start display and initialize all to OFF
    matrix.begin();
    matrix.show();
+
+   // get stored values from EEPROM
+   eeprom_retrieve();
 
 }
 
