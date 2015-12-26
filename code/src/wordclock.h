@@ -19,6 +19,14 @@
 */
 
 struct clockword {
-  unsigned int row;
-  unsigned long positions;
+  byte row;
+  unsigned int positions;
+};
+
+struct ray_struct {
+  byte x;
+  byte y;
+  byte speed;
+  byte length;
+  byte life;
 };

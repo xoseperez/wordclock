@@ -22,7 +22,7 @@
 #include "wordclock.h"
 #include "catalan.h"
 
-void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
+void loadLanguageCatalan(byte hour, byte minute, unsigned int * matrix) {
 
   /*
 
@@ -244,26 +244,6 @@ void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix) {
     default: loadCode((clockword) CAT_DOTZE, matrix); break;
   }
 
-
-  // ULTIMS MINUTS
-  /*
-  if (minute == 54) {
-    loadCode((clockword) CAT_TRES_Q, matrix);
-    loadCode((clockword) CAT_QUARTS, matrix);
-    loadCode((clockword) CAT_I_MIG, matrix);
-    loadCode((clockword) CAT_TOCATS, matrix);
-  }
-  if (minute == 55) {
-    loadCode((clockword) CAT_TRES_Q, matrix);
-    loadCode((clockword) CAT_QUARTS, matrix);
-    loadCode((clockword) CAT_I_MIG, matrix);
-    loadCode((clockword) CAT_BEN_Q, matrix);
-    loadCode((clockword) CAT_TOCATS, matrix);
-  }
-  if (minute >= 56) {
-    loadCode((clockword) CAT_VORA, matrix);
-  }
-  */
 
   // PARTICULES DE LES HORES
   if (hour_with_article) {

@@ -49,7 +49,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define LANGUAGE_SPANISH 1
 
 // game of life configuration
-#define UPDATE_GAMEOFLIFE 100
+#define UPDATE_GAMEOFLIFE 200
 #define GAMEOFLIFE_SEEDS 128
 #define GAMEOFLIFE_AUTORESET 50
 #define GAMEOFLIFE_BRIGHTNESS 16
@@ -63,7 +63,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MATRIX_LENGTH_MAX 15
 #define MATRIX_LIFE_MIN 10
 #define MATRIX_LIFE_MAX 30
-#define MATRIX_MAX_RAYS 30
+#define MATRIX_MAX_RAYS 40
 
 // modes
 #define TOTAL_MODES 3
@@ -112,15 +112,8 @@ RTC_DS1307 rtc;
 // Clock colors
 unsigned long colors[TOTAL_COLORS] = { COLOR_WHITE, COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW };
 
-// Matrix
-byte current_num_rays = 0;
-struct {
-  byte x;
-  byte y;
-  byte speed;
-  byte length;
-  byte life;
-} ray[MATRIX_MAX_RAYS];
+// The matrix array holds the time pattern matrix values
+unsigned int time_pattern[16] = {0};
 
 
 // =============================================================================
@@ -131,34 +124,58 @@ struct {
 // Methods
 // =============================================================================
 
+// Get pixel index in matrix from X,Y coords
+unsigned int pixelIndex(int x, int y) {
+   unsigned int pixel = TOTAL_PIXELS - ( MATRIX_WIDTH * y + ((y % 2 == 1) ? x : MATRIX_HEIGHT - x - 1)) - 1;
+   return pixel;
+}
 
 // === TIME ====================================================================
 
+/**
+ * Resets DS1307 time to compile time
+ */
 void resetTime() {
    #ifdef DEBUG
-   Serial.println(F("Reseting DS1307"));
+      Serial.println(F("Reseting DS1307"));
    #endif
    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
 
-// Shifts time the specified number of hours, minutes and seconds
+/**
+ * Shifts time the specified number of hours, minutes and seconds
+ * @param  int hours         Number of hours forward positive
+ * @param  int minutes       Number of minutes forward positive
+ * @param  int seconds       Number of seconds forward positive
+ */
 void shiftTime(int hours, int minutes, int seconds) {
    DateTime newTime = DateTime(rtc.now().unixtime() + seconds+60*(minutes+60*hours));
    rtc.adjust(newTime);
    mode = MODE_CHANGED;
 }
 
-// Sets seconds to 0 for current hour:minute
+/**
+ * Sets seconds to 0 for current hour:minute
+ */
 void resetSeconds() {
    shiftTime(0, 0, -rtc.now().second());
 }
 
+/**
+ * Prints current time part throu serial
+ * @param  int  digits        Number to print
+ * @param  bool semicolon     Whether to prepend a semicolon or not, defaults to false
+ */
 void printDigits(int digits, bool semicolon = false){
    if (semicolon) Serial.print(F(":"));
    if(digits < 10) Serial.print(F("0"));
    Serial.print(digits);
 }
 
+/**
+ * Displays time throu serial
+ * @param  DateTime now           DateTime object
+ */
 void digitalClockDisplay(DateTime now){
    Serial.print(F("Time: "));
    printDigits(now.hour(), false);
@@ -167,20 +184,104 @@ void digitalClockDisplay(DateTime now){
    Serial.println();
 }
 
+// === CLOCK ===================================================================
+
+/**
+ * Loads a word code into the time matrix
+ * @param  clockword code          a tupla defining the leds to be lit to form a word
+ * @param  unsigned  int *         LED matrix array representation
+ */
+void loadCode(clockword code, unsigned int * matrix) {
+   matrix[code.row] = matrix[code.row] | code.positions;
+}
+
+/**
+ * Loads current time pattern in time_pattern matrix
+ * @param  bool force         Update regardless the time since last update
+ */
+bool loadTimePattern(bool force = false) {
+
+   static int previous_hour = -1;
+   static int previous_minute = -1;
+
+   // Check previous values for hour and minute and
+   // update only if they have changed
+   DateTime now = rtc.now();
+   int current_hour = now.hour();
+   int current_minute = now.minute();
+   if ((!force) && (current_hour == previous_hour) && (current_minute == previous_minute)) return false;
+   previous_hour = current_hour;
+   previous_minute = current_minute;
+
+   digitalClockDisplay(now);
+
+   // Reset time pattern
+   for (byte i=0; i<MATRIX_HEIGHT; i++) time_pattern[i] = 0;
+
+   // Load strings
+   if (language == LANGUAGE_CATALAN) {
+      loadLanguageCatalan(current_hour, current_minute, time_pattern);
+   } else {
+      loadLanguageCastellano(current_hour, current_minute, time_pattern);
+   }
+
+   return true;
+
+}
+
+/**
+ * Load current time into LED matrix
+ */
+void updateClock() {
+
+   matrix.clear();
+   matrix.setBrightness(brightness);
+   for (byte row=0; row < 16; row++) {
+      unsigned int value = 1;
+      for (byte col=0; col < 16; col++) {
+         if ((time_pattern[row] & value) > 0) {
+            unsigned int pixel = 16 * row + ((row % 2 == 0) ? col : 15 - col);
+            matrix.setPixelColor(pixel, colors[color]);
+         }
+         value <<= 1;
+      }
+   }
+   matrix.show();
+
+}
+
 // === MATRIX ==================================================================
 
+/**
+ * Calculates color of the falling ray depending on distance to the tip
+ * @param  byte current       Position of current led in ray
+ * @param  byte total         Ray length
+ */
 unsigned long getMatrixColor(byte current, byte total) {
    byte green = map(current, 0, total, 255, 0);
    byte red = current == 0 ? 255 : 0;
    return matrix.Color(red, green, 0);
 }
 
-void seedMatrix() {
+/**
+ * Updates matrix effect
+ * @param  bool force         Update regardless the time since last update
+ */
+void updateMatrix(bool force = false) {
+
+   static unsigned long count = 0;
+   static unsigned long next_update = millis();
+   static byte current_num_rays = 0;
+   static ray_struct ray[MATRIX_MAX_RAYS];
+
+   byte i = 0;
+
+   if (!force && (next_update > millis())) return;
 
    if (current_num_rays < MATRIX_MAX_RAYS) {
       bool create = random(0, 100) < MATRIX_BIRTH_RATIO;
       if (create) {
-         byte i = 0;
+         i=0;
          while (ray[i].life > 0) i++;
          ray[i].x = random(0, MATRIX_WIDTH);
          ray[i].y = random(0, MATRIX_HEIGHT);
@@ -191,19 +292,9 @@ void seedMatrix() {
       }
    }
 
-}
-
-void updateMatrix(bool force = false) {
-
-   static unsigned long count = 0;
-   static unsigned long next_update = millis();
-
-   if (!force && (next_update > millis())) return;
-
-   seedMatrix();
    matrix.clear();
 
-   for (byte i=0; i<MATRIX_MAX_RAYS; i++) {
+   for (i=0; i<MATRIX_MAX_RAYS; i++) {
       if (ray[i].life > 0) {
 
          // update ray position depending on speed
@@ -240,15 +331,10 @@ void updateMatrix(bool force = false) {
 
    count++;
    next_update += UPDATE_MATRIX;
+
 }
 
 // === GAME OF LIFE ============================================================
-
-// Get pixel index in matrix from X,Y coords
-unsigned int pixelIndex(int x, int y) {
-   unsigned int pixel = TOTAL_PIXELS - ( MATRIX_WIDTH * y + ((y % 2 == 1) ? x : MATRIX_HEIGHT - x - 1)) - 1;
-   return pixel;
-}
 
 void initGameOfLife() {
 
@@ -388,51 +474,6 @@ void updateGameOfLife(bool force = false) {
 }
 
 
-// === CLOCK ===================================================================
-
-void loadCode(clockword code, unsigned long * matrix) {
-   matrix[code.row] = matrix[code.row] | code.positions;
-}
-
-void updateClock(bool force = false) {
-
-   // Check previous values for hour and minute and
-   // update only if they have changed
-   DateTime now = rtc.now();
-   static int previous_hour = -1;
-   static int previous_minute = -1;
-   int current_hour = now.hour();
-   int current_minute = now.minute();
-   if ((!force) && (current_hour == previous_hour) && (current_minute == previous_minute)) return;
-   previous_hour = current_hour;
-   previous_minute = current_minute;
-
-   digitalClockDisplay(now);
-
-   // The matrix array holds the matrix values
-   unsigned long pattern[16] = {0};
-
-   // Load strings
-   if (language == LANGUAGE_CATALAN) {
-      loadLanguageCatalan(current_hour, current_minute, pattern);
-   } else {
-      loadLanguageCastellano(current_hour, current_minute, pattern);
-   }
-
-   matrix.clear();
-   matrix.setBrightness(brightness);
-   for (unsigned int row=0; row < 16; row++) {
-      unsigned long value = 1;
-      for (unsigned int col=0; col < 16; col++) {
-         unsigned int pixel = 16 * row + ((row % 2 == 0) ? col : 15 - col);
-         matrix.setPixelColor(pixel, (pattern[row] & value) == 0 ? 0 : colors[color]);
-         value <<= 1;
-      }
-   }
-   matrix.show();
-
-}
-
 // === GENERAL =================================================================
 
 void eeprom_save() {
@@ -449,6 +490,12 @@ void eeprom_retrieve() {
    brightness = EEPROM.read(3);
 }
 
+int freeRam () {
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}
+
 // Update display depending on current mode
 void update(bool force = false) {
 
@@ -456,7 +503,10 @@ void update(bool force = false) {
 
       case MODE_CLOCK:
       case MODE_CHANGE:
-         updateClock(force);
+      case MODE_CHANGED:
+         if (loadTimePattern(force)) {
+            updateClock();
+         }
          break;
 
       case MODE_GAMEOFLIFE:
@@ -492,7 +542,7 @@ void buttonCallback(uint8_t pin, uint8_t event) {
             break;
 
          case PIN_BUTTON_BRIGHTNESS:
-            if (mode == MODE_CHANGE) {
+            if (mode == MODE_CHANGE || mode == MODE_CHANGED) {
                shiftTime(1, 0, 0);
             } else if (mode == MODE_CLOCK) {
                if (brightness == 0) {
@@ -506,7 +556,7 @@ void buttonCallback(uint8_t pin, uint8_t event) {
             break;
 
          case PIN_BUTTON_COLOR:
-            if (mode == MODE_CHANGE) {
+            if (mode == MODE_CHANGE || mode == MODE_CHANGED) {
                shiftTime(0, rtc.now().minute() == 59 ? -59 : 1, 0);
             } else if (mode == MODE_CLOCK) {
                color = (color + 1) % TOTAL_COLORS;
@@ -563,9 +613,6 @@ void setup() {
 
    // Initialise random number generation
    randomSeed(rtc.now().unixtime());
-
-   // Reset matrix
-   for (byte i=0; i< MATRIX_MAX_RAYS; i++) ray[i].life = 0;
 
    // Start display and initialize all to OFF
    matrix.begin();

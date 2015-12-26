@@ -74,5 +74,5 @@
 #define CAT_NIT         {14, 0x0070}
 #define CAT_TARDA       {14, 0x001F}
 
-void loadCode(clockword code, unsigned long * matrix);
-void loadLanguageCatalan(byte hour, byte minute, unsigned long * matrix);
+void loadCode(clockword code, unsigned int * matrix);
+void loadLanguageCatalan(byte hour, byte minute, unsigned int * matrix);

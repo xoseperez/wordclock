@@ -63,5 +63,5 @@
 #define ESP_TARDE       {15, 0x03E0}
 #define ESP_NOCHE       {15, 0x001F}
 
-void loadCode(clockword code, unsigned long * matrix);
-void loadLanguageCastellano(byte hour, byte minute, unsigned long * matrix);
+void loadCode(clockword code, unsigned int * matrix);
+void loadLanguageCastellano(byte hour, byte minute, unsigned int * matrix);

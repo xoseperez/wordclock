@@ -22,7 +22,7 @@
 #include "wordclock.h"
 #include "castellano.h"
 
-void loadLanguageCastellano(byte hour, byte minute, unsigned long * matrix) {
+void loadLanguageCastellano(byte hour, byte minute, unsigned int * matrix) {
 
   /*
 
