@@ -48,28 +48,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define LANGUAGE_CATALAN 0
 #define LANGUAGE_SPANISH 1
 
-// game of life configuration
-#define UPDATE_GAMEOFLIFE 200
-#define GAMEOFLIFE_SEEDS 128
-#define GAMEOFLIFE_AUTORESET 50
-#define GAMEOFLIFE_BRIGHTNESS 16
-
 // matrix configuration
 #define UPDATE_MATRIX 25
 #define MATRIX_BIRTH_RATIO 75
-#define MATRIX_SPEED_MIN 6
+#define MATRIX_SPEED_MIN 4
 #define MATRIX_SPEED_MAX 1
 #define MATRIX_LENGTH_MIN 5
-#define MATRIX_LENGTH_MAX 15
+#define MATRIX_LENGTH_MAX 20
 #define MATRIX_LIFE_MIN 10
-#define MATRIX_LIFE_MAX 30
-#define MATRIX_MAX_RAYS 40
+#define MATRIX_LIFE_MAX 40
+#define MATRIX_MAX_RAYS 80
+#define STICKY_COUNT 1000
+#define STICKY_PAUSE 5000
 
 // modes
-#define TOTAL_MODES 3
+#define TOTAL_MODES 2
 #define MODE_CLOCK 0
-#define MODE_GAMEOFLIFE 1
-#define MODE_MATRIX 2
+#define MODE_MATRIX 1
 #define MODE_CHANGE 8
 #define MODE_CHANGED 9
 
@@ -126,8 +121,7 @@ unsigned int time_pattern[16] = {0};
 
 // Get pixel index in matrix from X,Y coords
 unsigned int pixelIndex(int x, int y) {
-   unsigned int pixel = TOTAL_PIXELS - ( MATRIX_WIDTH * y + ((y % 2 == 1) ? x : MATRIX_HEIGHT - x - 1)) - 1;
-   return pixel;
+   return MATRIX_WIDTH * y + ((y % 2 == 0) ? x : MATRIX_HEIGHT - x - 1);
 }
 
 // === TIME ====================================================================
@@ -230,24 +224,47 @@ bool loadTimePattern(bool force = false) {
 }
 
 /**
- * Load current time into LED matrix
+ * Count the number of lit LEDs for current time pattern
+ * @return byte Number of LEDs
  */
-void updateClock() {
+byte countLEDs() {
 
-   matrix.clear();
-   matrix.setBrightness(brightness);
-   for (byte row=0; row < 16; row++) {
+   byte char_total = 0;
+
+   for (byte y=0; y<MATRIX_HEIGHT; y++) {
+      unsigned int row = time_pattern[y];
+      while (row>0) {
+         if (row & 1) char_total++;
+         row >>= 1;
+      }
+   }
+
+   return char_total;
+
+}
+
+void loadTimeInMatrix(unsigned int * pattern, unsigned long color) {
+
+   for (byte y=0; y < 16; y++) {
       unsigned int value = 1;
-      for (byte col=0; col < 16; col++) {
-         if ((time_pattern[row] & value) > 0) {
-            unsigned int pixel = 16 * row + ((row % 2 == 0) ? col : 15 - col);
-            matrix.setPixelColor(pixel, colors[color]);
+      for (byte x=0; x < 16; x++) {
+         if ((pattern[y] & value) > 0) {
+            matrix.setPixelColor(pixelIndex(x, y), color);
          }
          value <<= 1;
       }
    }
-   matrix.show();
 
+}
+
+/**
+ * Load current time into LED matrix
+ */
+void updateClock() {
+   matrix.clear();
+   matrix.setBrightness(brightness);
+   loadTimeInMatrix(time_pattern, colors[color]);
+   matrix.show();
 }
 
 // === MATRIX ==================================================================
@@ -274,22 +291,38 @@ void updateMatrix(bool force = false) {
    static byte current_num_rays = 0;
    static ray_struct ray[MATRIX_MAX_RAYS];
 
+   static bool sticky = false;
+   static bool create = true;
+   static byte char_total = 0;
+   static byte char_so_far = 0;
+   static unsigned int local_pattern[MATRIX_HEIGHT];
+
    byte i = 0;
 
    if (!force && (next_update > millis())) return;
 
-   if (current_num_rays < MATRIX_MAX_RAYS) {
-      bool create = random(0, 100) < MATRIX_BIRTH_RATIO;
-      if (create) {
+   if (create && (current_num_rays < MATRIX_MAX_RAYS)) {
+      bool do_create = random(0, 100) < MATRIX_BIRTH_RATIO;
+      if (do_create) {
          i=0;
          while (ray[i].life > 0) i++;
          ray[i].x = random(0, MATRIX_WIDTH);
-         ray[i].y = random(0, MATRIX_HEIGHT);
+         ray[i].y = random(-5, 5);
          ray[i].speed = random(MATRIX_SPEED_MAX, MATRIX_SPEED_MIN);
          ray[i].length = random(MATRIX_LENGTH_MIN, MATRIX_LENGTH_MAX);
          ray[i].life = random(MATRIX_LIFE_MIN, MATRIX_LIFE_MAX);
          current_num_rays++;
       }
+   }
+
+   if ((!sticky) && (count > STICKY_COUNT)) {
+      sticky = true;
+      loadTimePattern();
+      char_total = countLEDs();
+      for (i=0; i<MATRIX_HEIGHT; i++) {
+         local_pattern[i] = 0;
+      }
+      char_so_far = 0;
    }
 
    matrix.clear();
@@ -311,15 +344,54 @@ void updateMatrix(bool force = false) {
 
          bool active = false;
          for (byte p=start; p<ray[i].length; p++) {
-            int col = ray[i].y - p;
-            if (0 <= col && col < MATRIX_HEIGHT) {
-               matrix.setPixelColor(pixelIndex(ray[i].x, MATRIX_HEIGHT - col - 1), getMatrixColor(p, ray[i].length));
-               active = true;
+            int y = ray[i].y - p;
+            if (0 <= y && y < MATRIX_HEIGHT) {
+               matrix.setPixelColor(pixelIndex(ray[i].x, y), getMatrixColor(p, ray[i].length));
             }
+            active |= (y < MATRIX_HEIGHT);
+         }
+         if (!active) ray[i].life = 0;
+
+         // we are in sticky mode
+         if (sticky) {
+
+            byte y = ray[i].y;
+
+            if (0 <= y && y < MATRIX_HEIGHT) {
+
+               // check if we have hit a led in the time_pattern matrix
+               unsigned int value = 1 << ray[i].x;
+               if ((time_pattern[y] & value) == value) {
+
+                     // check if we have already hit this led before
+                     if ((local_pattern[y] & value) != value) {
+
+                        // kill the ray
+                        ray[i].life = 0;
+                        char_so_far++;
+
+                        // save it into local pattern
+                        local_pattern[y] = local_pattern[y] + value;
+
+                        // are we done?
+                        if (char_so_far == char_total) {
+                           create = false;
+                        }
+
+                     }
+
+               }
+
+            }
+
          }
 
-         // still active?
-         if (!active) ray[i].life = 0;
+         if (sticky or !create) {
+            // draw hit leds
+            loadTimeInMatrix(local_pattern, COLOR_YELLOW);
+         }
+
+         // free ray if dead
          if (ray[i].life == 0) current_num_rays--;
 
       }
@@ -329,150 +401,18 @@ void updateMatrix(bool force = false) {
    matrix.setBrightness(DEFAULT_BRIGHTNESS);
    matrix.show();
 
-   count++;
+   if ((current_num_rays == 0) and !create) {
+      sticky = false;
+      create = true;
+      count = 0;
+      delay(STICKY_PAUSE);
+   } else {
+      count++;
+   }
+
    next_update += UPDATE_MATRIX;
 
 }
-
-// === GAME OF LIFE ============================================================
-
-void initGameOfLife() {
-
-   byte x,y;
-   byte index;
-   byte numCells = 0;
-
-   matrix.clear();
-   while (numCells < GAMEOFLIFE_SEEDS) {
-      x = random(0, MATRIX_WIDTH);
-      y = random(0, MATRIX_HEIGHT);
-      index = pixelIndex(x, y);
-      if (matrix.getPixelColor(index) == 0) {
-         matrix.setPixelColor(index, COLOR_GREEN);
-         numCells++;
-      }
-   }
-   matrix.setBrightness(GAMEOFLIFE_BRIGHTNESS);
-   matrix.show();
-
-}
-
-bool isAlive(unsigned int * matrix, int x, int y) {
-
-   if (x < 0) x += MATRIX_WIDTH;
-   if (x >= MATRIX_WIDTH) x -= MATRIX_WIDTH;
-   if (y < 0) y += MATRIX_HEIGHT;
-   if (y >= MATRIX_HEIGHT) y -= MATRIX_HEIGHT;
-
-   unsigned int row = 1 << (MATRIX_WIDTH-x-1);
-   bool alive = ((matrix[y] & row) != 0);
-
-   return alive;
-
-}
-
-byte countNeighbours(unsigned int * matrix, int x, int y) {
-      byte neighbours = 0;
-      if (isAlive(matrix, x-1, y-1)) neighbours++;
-      if (isAlive(matrix, x-1, y)) neighbours++;
-      if (isAlive(matrix, x-1, y+1)) neighbours++;
-      if (isAlive(matrix, x, y-1)) neighbours++;
-      if (isAlive(matrix, x, y+1)) neighbours++;
-      if (isAlive(matrix, x+1, y-1)) neighbours++;
-      if (isAlive(matrix, x+1, y)) neighbours++;
-      if (isAlive(matrix, x+1, y+1)) neighbours++;
-      return neighbours;
-}
-
-void updateGameOfLife(bool force = false) {
-
-   static byte numCells = 0;
-   static byte prevCells = 0;
-   static byte autoResetCount = 0;
-   static unsigned long next_update = millis();
-
-   byte x, y;
-   unsigned int index;
-   unsigned int current[MATRIX_HEIGHT];
-
-   if (!force && (next_update > millis())) return;
-
-   if (numCells == 0) {
-
-      initGameOfLife();
-      numCells = GAMEOFLIFE_SEEDS;
-
-   } else {
-
-      // Create an image of current situation
-      for (y=0; y<MATRIX_HEIGHT; y++) {
-         unsigned int row = 0;
-         for (x=0; x<MATRIX_WIDTH; x++) {
-
-            index = pixelIndex(x, y);
-            row <<= 1;
-            if (matrix.getPixelColor(index) != 0) row += 1;
-
-         }
-         current[y] = row;
-
-      }
-
-      matrix.clear();
-      numCells = 0;
-      for (x=0; x<MATRIX_WIDTH; x++) {
-         for (y=0; y<MATRIX_HEIGHT; y++) {
-
-            index = pixelIndex(x, y);
-            byte neighbours = countNeighbours(current, x, y);
-            bool live = isAlive(current, x, y);
-
-            // a living cell
-            if (live) {
-
-               // keeps on living if 2-3 neighbours
-               if (neighbours == 2 || neighbours == 3) {
-                  matrix.setPixelColor(index, COLOR_RED);
-                  numCells++;
-
-               // else dies due to under/over-population
-               } else {
-                  // NOP
-               }
-
-            // a dead cell
-            } else {
-
-               // comes to life if 3 living neighbours
-               if (neighbours == 3) {
-                  matrix.setPixelColor(index, COLOR_GREEN);
-                  numCells++;
-
-               // else nothing
-               } else {
-                  // NOP
-               }
-
-            }
-         }
-      }
-
-      matrix.setBrightness(GAMEOFLIFE_BRIGHTNESS);
-      matrix.show();
-
-   }
-
-   if (numCells == prevCells) autoResetCount++;
-   if (autoResetCount == GAMEOFLIFE_AUTORESET) {
-      numCells = 0;
-      autoResetCount = 0;
-   }
-   prevCells = numCells;
-
-   next_update += UPDATE_GAMEOFLIFE;
-
-}
-
 
 // === GENERAL =================================================================
 
@@ -507,10 +447,6 @@ void update(bool force = false) {
          if (loadTimePattern(force)) {
             updateClock();
          }
-         break;
-
-      case MODE_GAMEOFLIFE:
-         updateGameOfLife(force);
          break;
 
       case MODE_MATRIX:
