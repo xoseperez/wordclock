@@ -49,17 +49,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define LANGUAGE_SPANISH 1
 
 // matrix configuration
-#define UPDATE_MATRIX 25
+#define UPDATE_MATRIX 20
 #define MATRIX_BIRTH_RATIO 75
 #define MATRIX_SPEED_MIN 4
-#define MATRIX_SPEED_MAX 1
+#define MATRIX_SPEED_MAX 2
 #define MATRIX_LENGTH_MIN 5
 #define MATRIX_LENGTH_MAX 20
 #define MATRIX_LIFE_MIN 10
 #define MATRIX_LIFE_MAX 40
-#define MATRIX_MAX_RAYS 80
+#define MATRIX_MAX_RAYS 60
 #define STICKY_COUNT 1000
 #define STICKY_PAUSE 5000
+#define STICKY_MAX 500
 
 // modes
 #define TOTAL_MODES 2
@@ -290,6 +291,7 @@ void updateMatrix(bool force = false) {
    static unsigned long next_update = millis();
    static byte current_num_rays = 0;
    static ray_struct ray[MATRIX_MAX_RAYS];
+   static unsigned int countdown = 0;
 
    static bool sticky = false;
    static bool create = true;
@@ -317,6 +319,7 @@ void updateMatrix(bool force = false) {
 
    if ((!sticky) && (count > STICKY_COUNT)) {
       sticky = true;
+      countdown = STICKY_MAX;
       loadTimePattern();
       char_total = countLEDs();
       for (i=0; i<MATRIX_HEIGHT; i++) {
@@ -367,7 +370,7 @@ void updateMatrix(bool force = false) {
                      if ((local_pattern[y] & value) != value) {
 
                         // kill the ray
-                        ray[i].life = 0;
+                        ray[i].life = ray[i].length - 1;
                         char_so_far++;
 
                         // save it into local pattern
@@ -386,17 +389,26 @@ void updateMatrix(bool force = false) {
 
          }
 
-         if (sticky or !create) {
-            // draw hit leds
-            loadTimeInMatrix(local_pattern, COLOR_YELLOW);
-         }
-
          // free ray if dead
          if (ray[i].life == 0) current_num_rays--;
 
       }
    }
 
+   if (sticky) {
+      if (countdown > 0) {
+         if (--countdown == 0) {
+            Serial.println(F("Force closed"));
+            for (i=0; i<MATRIX_HEIGHT; i++) local_pattern[i] = time_pattern[i];
+            create = false;
+         }
+      }
+   }
+
+   if (sticky or !create) {
+      // draw hit leds
+      loadTimeInMatrix(local_pattern, COLOR_YELLOW);
+   }
 
    matrix.setBrightness(DEFAULT_BRIGHTNESS);
    matrix.show();
