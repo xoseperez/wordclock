@@ -1,14 +1,59 @@
 //-----------------------------------
 // CONFIGURATION
 //-----------------------------------
-grid_size=16;
-grid_step=10;
+
+//grid_size=16;
+//grid_step=10;
+//grid_shift=0;
+
+grid_size=8;
+grid_step=8;
+grid_shift=0.4;
+
 grid_wall=1;
 grid_height=5;
 hole_size=4;
 chamfer_size=4;
-//-----------------------------------
 
+button_text = [
+    "MODE",
+    "LANGUAGE",
+    "COLOR",
+    "BRIGHTNESS"
+];
+
+list_esp_cat_16 = [
+    "ésónesonvoracasi",
+    //"undostreslangmig",
+    "unodostreslngmig", //<- add "uno"
+    "quarts1imenysmig",
+    "cinc2ben34tocats",
+    "lesdelasduesiset",
+    "cincochovuit&una",
+    "dosnuevediezonce",
+    "quatreseiscuatro",
+    "sietedoce5ymenos",
+    "&onzedotzenoudeu",
+    "veinticincomedia",
+    "cuartodiezveinte",
+    "ben6tocadespunto",
+    "tocadapasadas789",
+    "dellamatinitarda",
+    "mañanatardenoche"
+];
+
+list_cat_8 = [
+    "1dos3les",
+    "laquarts",
+    "de0dotze",
+    "&unacinc",
+    "duesiset",
+    "quatres0",
+    "vuitnou0",
+    "deu&onze"
+];
+
+//-----------------------------------
 
 module base(size, step, chamfer, hole) {
     size = (size+2)*step;
@@ -16,22 +61,22 @@ module base(size, step, chamfer, hole) {
         translate([chamfer, chamfer, 0]) {
             minkowski() {
                 square(size-2*chamfer);
-                circle(chamfer);
+                circle(chamfer, $fn=50);
             }
         }
         hole = hole / 2;
         hole_center = (step) / 2;
         translate([hole_center,hole_center,0]) {
-            circle(hole, center=true);
+            circle(hole, center=true, $fn=50);
         }
         translate([size-hole_center,hole_center,0]) {
-            circle(hole, center=true);
+            circle(hole, center=true, $fn=50);
         }
         translate([size-hole_center,size-hole_center,0]) {
-            circle(hole, center=true);
+            circle(hole, center=true, $fn=50);
         }
         translate([hole_center,size-hole_center,0]) {
-            circle(hole, center=true);
+            circle(hole, center=true, $fn=50);
         }
     }
 }
@@ -68,7 +113,8 @@ module subgrid(size, step, wall) {
 module mask()  {
         difference() {
             base(grid_size, grid_step, chamfer_size, hole_size);
-            grid(grid_size, grid_step, grid_wall);
+            translate([0, grid_shift])
+                grid(grid_size, grid_step, grid_wall);
         }
 }
 
@@ -83,8 +129,8 @@ module arc(max, min) {
     union() {
         intersection() {
             difference() {
-                circle(max);
-                circle(min);
+                circle(max, $fn=50);
+                circle(min, $fn=50);
             }
             square(max,center=false);
         }
@@ -106,12 +152,54 @@ module layer2() {
     }
 }
 
+module layer2_v3() {
+    difference() {
+        base(grid_size, grid_step, chamfer_size, hole_size);
+        translate([grid_step*1.5,grid_step*8 + 1,0]) {
+                square([1.5*(grid_step-grid_wall),grid_wall*4], true);
+        }
+    }
+}
+
+module layer4() {
+    border = grid_step/2;
+    size = (grid_size+2)*grid_step - border*2;
+    difference() {
+        base(grid_size, grid_step, chamfer_size, hole_size);
+        translate([border,border]) 
+            difference() {
+                square(size);
+                circle(5, $fn=50);
+                translate([size,0]) circle(5, $fn=50);
+                translate([size,size]) circle(5, $fn=50);
+                translate([0,size]) circle(5, $fn=50);
+            }
+    }
+}
+
 module wall_hole() {
     minkowski() {
         square([0.1,15], center=true);
-        circle(3);
+        circle(3, $fn=50);
     }
 }
+
+module socket_hole() {
+    circle(11.4/2, $fn=50);
+}
+
+module buttons() {
+    //font = "Ubuntu:style=Bold";
+    font = "AG Stencil:style=AG Stencil";
+    for (x=[0:3]) {
+        translate([0,x*12]) {
+            circle(3.6, $fn=50);
+            translate([6,-2.5]) 
+                text(button_text[x], 6, font,"right","center");
+        }
+    }
+}
+
 module layer3() {
     difference() {
         base(grid_size, grid_step, chamfer_size, hole_size);
@@ -123,27 +211,89 @@ module layer3() {
     }
 }
 
+module layer3_v2() {
+    difference() {
+        base(grid_size, grid_step, chamfer_size, hole_size);
+        translate([30,30]) socket_hole();
+        translate([30,50]) buttons();
+        translate([100,110])
+            rotate(-90)
+                pcbfootprint();
+    }
+}
+
+module pcbfootprint_v2() {
+    
+    hole_vector = sqrt(22*22*2);
+    
+    // PCB holes
+    for(i = [45:90:315]) {
+        rotate([0,0,i]) {
+            translate([0,hole_vector]) {
+                circle(1.5, $fn=50);
+            }
+        }
+    }
+    
+    // speaker
+    translate([1,3.5-22]) {
+        circle(6.5, $fn=50);
+    }
+    
+
+}
+
+module layer3_v3() {
+    difference() {
+        base(grid_size, grid_step, chamfer_size, hole_size);
+        translate([30,30]) socket_hole();
+        translate([30,50]) circle(3.6, $fn=50);
+        translate([90,90])
+            pcbfootprint_v2();
+    }
+}
+
+module layer3_v3b() {
+    difference() {
+        base(grid_size, grid_step, chamfer_size, hole_size);
+        translate([15,15]) socket_hole();
+        translate([15,30]) circle(3.6, $fn=50);
+        translate([48,48])
+            rotate([0,0,180]) pcbfootprint_v2();
+    }
+}
+
+module layer5() {
+    difference() {
+        base(grid_size, grid_step, chamfer_size, hole_size);
+        translate([grid_step,grid_step]) square([65,65]);
+    }
+}
+
 module pcbfootprint(hole=4) {
 
     // HOLES
     hole = hole / 2;
     translate([4,4,0]) {
-        circle(hole, center=true);
+        circle(hole, center=true, $fn=50);
     }
     translate([84,4,0]) {
-        circle(hole, center=true);
+        circle(hole, center=true, $fn=50);
     }
     translate([4,55,0]) {
-        circle(hole, center=true);
+        circle(hole, center=true, $fn=50);
     }
     translate([84,55,0]) {
-        circle(hole, center=true);
+        circle(hole, center=true, $fn=50);
     }
     
     // BUTTONS
-    translate([23,44,0]) {
-        square([54,13]);
-    }
+    //translate([23,44,0]) {
+        //square([54,13]);
+    //}
+    
+    // SPEAKER
+    translate([49, 36]) circle(6.5, $fn=50);
 
 }
 
@@ -180,28 +330,11 @@ module write(char) {
     }
 }
 
-module chars() {
-    list = [
-        "ésónesonvoracasi",
-        "undostreslangmig",
-        "quarts1imenysmig",
-        "cinc2ben34tocats",
-        "lesdelasduesiset",
-        "cincochovuit&una",
-        "dosnuevediezonce",
-        "quatreseiscuatro",
-        "sietedoce5ymenos",
-        "&onzedotzenoudeu",
-        "veinticincomedia",
-        "cuartodiezveinte",
-        "ben6tocadespunto",
-        "tocadapasadas789",
-        "dellamatinitarda",
-        "mañanatardenoche"
-    ];
+module chars(list) {
+    
     for (y = [0 : 15]) {
         for (x = [ 0 : 15 ]) {
-            translate([(x+1)*10,160-y*10]) write(list[y][x]);
+            translate([(x+1)*grid_step,grid_step*grid_size-y*grid_step]) write(list[y][x]);
         }
     }
     
@@ -212,30 +345,41 @@ module chars() {
         
 }
 
-module vinil() {
+module vinil(list) {
     offset(0.10)
         difference() {
             layer1();
-            chars();
+            chars(list);
         }
 }
 
 //Capa 1 (18x18, Acrílic 3mm, transparent, trasnslúcid i fosc)
 //layer1(); 
 
+//Graella (18x18, PLA negre)
+//3dprint();
+//mask();
+
 //Capa 2 (18x18, Acrílic tranparent/fosc? 3mm)
 //layer2();
+//layer2_v3();
+
+// Hollow layer
+//layer4();
+
+// PCB matrix layer
+//layer5();
 
 //Capa 3 (18x18, Acrílic transparent/fosc? 3mm)
 //layer3();
+//layer3_v2();
+//layer3_v3();
+layer3_v3b();
 
 //Capes (transparent, 3mm)
 //layer1();
 //translate([184,0,0]) layer2();
 //translate([2*184,0,0]) layer3();
 
-//Graella (18x18, PLA negre)
-//3dprint();
-
 // Lletres (18x18, vinil negre)
-//vinil();
+//vinil(list_cat_8);
