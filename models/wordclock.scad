@@ -2,19 +2,16 @@
 // CONFIGURATION
 //-----------------------------------
 
-//grid_size=16;
-//grid_step=10;
-//grid_shift=0;
-
-grid_size=8;
-grid_step=8;
-grid_shift=0.4;
-
+// General settings
+grid_size=16;
+grid_step=16;
 grid_wall=1;
 grid_height=5;
 hole_size=4;
 chamfer_size=4;
+font = "AG Stencil:style=AG Stencil";
 
+// Text for the 4 buttons in version 1
 button_text = [
     "MODE",
     "LANGUAGE",
@@ -22,6 +19,7 @@ button_text = [
     "BRIGHTNESS"
 ];
 
+// Stencil of characters for 16x16 matrix (catalan & spanish)
 list_esp_cat_16 = [
     "ésónesonvoracasi",
     //"undostreslangmig",
@@ -42,6 +40,7 @@ list_esp_cat_16 = [
     "mañanatardenoche"
 ];
 
+// Stencil of characters for the 8x8 matrix (catalan)
 list_cat_8 = [
     "1dos3les",
     "laquarts",
@@ -52,6 +51,28 @@ list_cat_8 = [
     "vuitnou0",
     "deu&onze"
 ];
+
+//-----------------------------------
+
+// Front face (translucid or dark acrylic, also for the difuser)
+//layer_front(); 
+
+// Character stencial (pass stencil array as argument)
+//layer_stencil(list_esp_cat_16);
+
+// Grid (choose either a 3D model or a 2D model to laser cut)
+//layer_grid_3D();
+//layer_grid_2D();
+
+// Matrix support layer, with cutouts for the cables
+//layer_support();
+
+// Hollow layer
+//layer_hollow();
+
+// Back layer (use v1 for DaClock PCB v1.X, use v2 for v2+)
+//layer_back_v1();
+//layer_back_v2();
 
 //-----------------------------------
 
@@ -110,17 +131,16 @@ module subgrid(size, step, wall) {
     }
 }
 
-module mask()  {
+module layer_grid_2D()  {
         difference() {
             base(grid_size, grid_step, chamfer_size, hole_size);
-            translate([0, grid_shift])
-                grid(grid_size, grid_step, grid_wall);
+            grid(grid_size, grid_step, grid_wall);
         }
 }
 
-module 3dprint() {
+module layer_grid_3D() {
     difference() {
-        linear_extrude(grid_height) mask();
+        linear_extrude(grid_height) layer_grid_2D();
         subgrid(grid_size, grid_step, grid_wall);
     }
 }
@@ -138,11 +158,11 @@ module arc(max, min) {
     }
 }
 
-module layer1() {
+module layer_front() {
     base(grid_size, grid_step, chamfer_size, hole_size);
 }
 
-module layer2() {
+module layer_support() {
     difference() {
         base(grid_size, grid_step, chamfer_size, hole_size);
         translate([5,5,0]) arc(10,5);
@@ -152,16 +172,7 @@ module layer2() {
     }
 }
 
-module layer2_v3() {
-    difference() {
-        base(grid_size, grid_step, chamfer_size, hole_size);
-        translate([grid_step*1.5,grid_step*8 + 1,0]) {
-                square([1.5*(grid_step-grid_wall),grid_wall*4], true);
-        }
-    }
-}
-
-module layer4() {
+module layer_hollow() {
     border = grid_step/2;
     size = (grid_size+2)*grid_step - border*2;
     difference() {
@@ -189,8 +200,6 @@ module socket_hole() {
 }
 
 module buttons() {
-    //font = "Ubuntu:style=Bold";
-    font = "AG Stencil:style=AG Stencil";
     for (x=[0:3]) {
         translate([0,x*12]) {
             circle(3.6, $fn=50);
@@ -200,23 +209,12 @@ module buttons() {
     }
 }
 
-module layer3() {
+module layer_back_v1() {
     difference() {
         base(grid_size, grid_step, chamfer_size, hole_size);
         translate([50,30,0]) wall_hole();
         translate([(grid_size+2)*grid_step-50,30,0]) wall_hole();
         translate([(180-51)/2-4,110+(180-80)/2+4,0])
-            rotate(-90)
-                pcbfootprint();
-    }
-}
-
-module layer3_v2() {
-    difference() {
-        base(grid_size, grid_step, chamfer_size, hole_size);
-        translate([30,30]) socket_hole();
-        translate([30,50]) buttons();
-        translate([100,110])
             rotate(-90)
                 pcbfootprint();
     }
@@ -243,30 +241,13 @@ module pcbfootprint_v2() {
 
 }
 
-module layer3_v3() {
+module layer_back_v2() {
     difference() {
         base(grid_size, grid_step, chamfer_size, hole_size);
         translate([30,30]) socket_hole();
         translate([30,50]) circle(3.6, $fn=50);
         translate([90,90])
             pcbfootprint_v2();
-    }
-}
-
-module layer3_v3b() {
-    difference() {
-        base(grid_size, grid_step, chamfer_size, hole_size);
-        translate([15,15]) socket_hole();
-        translate([15,30]) circle(3.6, $fn=50);
-        translate([48,48])
-            rotate([0,0,180]) pcbfootprint_v2();
-    }
-}
-
-module layer5() {
-    difference() {
-        base(grid_size, grid_step, chamfer_size, hole_size);
-        translate([grid_step,grid_step]) square([65,65]);
     }
 }
 
@@ -345,41 +326,11 @@ module chars(list) {
         
 }
 
-module vinil(list) {
+module layer_stencil(list) {
     offset(0.10)
         difference() {
-            layer1();
+            layer_front();
             chars(list);
         }
 }
 
-//Capa 1 (18x18, Acrílic 3mm, transparent, trasnslúcid i fosc)
-//layer1(); 
-
-//Graella (18x18, PLA negre)
-//3dprint();
-//mask();
-
-//Capa 2 (18x18, Acrílic tranparent/fosc? 3mm)
-//layer2();
-//layer2_v3();
-
-// Hollow layer
-//layer4();
-
-// PCB matrix layer
-//layer5();
-
-//Capa 3 (18x18, Acrílic transparent/fosc? 3mm)
-//layer3();
-//layer3_v2();
-//layer3_v3();
-layer3_v3b();
-
-//Capes (transparent, 3mm)
-//layer1();
-//translate([184,0,0]) layer2();
-//translate([2*184,0,0]) layer3();
-
-// Lletres (18x18, vinil negre)
-//vinil(list_cat_8);
